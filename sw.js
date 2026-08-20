@@ -1,9 +1,9 @@
-const CACHE = 'control-asistencia-v2-v6';
+const CACHE = 'control-asistencia-v2-v7';
 const CORE = [
   '/',
   '/index.html',
-  '/css/styles.css?v=6',
-  '/js/app.js?v=6',
+  '/css/styles.css?v=7',
+  '/js/app.js?v=7',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
 ];

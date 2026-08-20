@@ -143,6 +143,34 @@ function statusFor(userId) {
   return { text: t('absence'), cls: 'ausencia' };
 }
 
+function hoursWorked(userId) {
+  const recs = state.today.filter((r) => r.user_id === userId);
+  if (!recs.length) return '00:00';
+  const parseTs = (ts) => {
+    const [d, t] = ts.split(' ');
+    const [y, mo, da] = d.split('-').map(Number);
+    const [h, mi, s] = t.split(':').map(Number);
+    return new Date(y, mo - 1, da, h, mi, s);
+  };
+  let totalMs = 0;
+  let lastEntry = null;
+  for (const r of recs) {
+    if (r.type === 'entrada') {
+      lastEntry = parseTs(r.timestamp);
+    } else if (r.type === 'salida' && lastEntry) {
+      totalMs += parseTs(r.timestamp).getTime() - lastEntry.getTime();
+      lastEntry = null;
+    }
+  }
+  if (lastEntry) {
+    totalMs += Date.now() - lastEntry.getTime();
+  }
+  const totalMin = Math.max(0, Math.floor(totalMs / 60000));
+  const h = String(Math.floor(totalMin / 60)).padStart(2, '0');
+  const m = String(totalMin % 60).padStart(2, '0');
+  return h + ':' + m;
+}
+
 function renderMarking() {
   const grid = $('#user-grid');
   grid.innerHTML = '';
@@ -157,14 +185,17 @@ function renderMarking() {
     card.type = 'button';
     card.className = 'user-card';
     card.onclick = () => openPin(u);
-    const img = avatarEl(u, 96);
+    const img = avatarEl(u, 120);
     const name = document.createElement('span');
     name.className = 'name';
     name.textContent = u.name;
     const chip = document.createElement('span');
     chip.className = 'chip ' + st.cls;
     chip.textContent = st.text;
-    card.append(img, name, chip);
+    const hrs = document.createElement('span');
+    hrs.className = 'hours';
+    hrs.textContent = t('hours_label') + ': ' + hoursWorked(u.id);
+    card.append(img, name, chip, hrs);
     grid.appendChild(card);
   });
   lastGridKey = gridKey();
@@ -222,6 +253,7 @@ async function submitPin() {
 function openActions() {
   const user = state.selectedUser;
   $('#act-user').textContent = user.name;
+  $('#act-hours').textContent = t('hours_label') + ': ' + hoursWorked(user.id);
   const av = $('#act-avatar');
   av.innerHTML = '';
   av.appendChild(avatarEl(user, 80));
@@ -465,6 +497,7 @@ function openAdminTab(tab) {
   $$('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   $$('.tab-panel').forEach((p) => (p.hidden = p.id !== 'tab-' + tab));
   if (tab === 'dashboard') loadDashboard();
+  if (tab === 'calendar') loadCalendar();
   if (tab === 'users') loadAdminUsers();
   if (tab === 'history') {
     fillHistoryUsers();
@@ -521,6 +554,60 @@ async function loadDashboard() {
       : '<li class="muted">' + esc(t('no_activity')) + '</li>';
   } catch (e) {
     /* ignore */
+  }
+}
+
+function fillCalendarControls() {
+  if (!state.allUsers.length) return;
+  const sel = $('#cal-user');
+  sel.innerHTML = '<option value="">' + esc(t('select_user')) + '</option>' +
+    state.allUsers.map((u) => '<option value="' + u.id + '">' + esc(u.name) + '</option>').join('');
+  if (!$('#cal-month').value) {
+    const now = new Date();
+    $('#cal-month').value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  }
+}
+
+async function loadCalendar() {
+  const prevUser = $('#cal-user').value;
+  const prevMonth = $('#cal-month').value;
+  if (!state.allUsers.length) await loadAdminUsers();
+  fillCalendarControls();
+  if (prevUser) $('#cal-user').value = prevUser;
+  if (prevMonth) $('#cal-month').value = prevMonth;
+  const userId = $('#cal-user').value;
+  const month = $('#cal-month').value;
+  if (!userId || !month) {
+    $('#cal-grid').innerHTML = '<p class="muted">' + esc(t('cal_select_user')) + '</p>';
+    $('#cal-stats').innerHTML = '';
+    return;
+  }
+  try {
+    const data = await api('/api/attendance/user-summary?userId=' + userId + '&month=' + month);
+    const [y, mo] = month.split('-').map(Number);
+    const firstDay = new Date(y, mo - 1, 1).getDay();
+    const locale = LANGUAGES[currentLang] ? LANGUAGES[currentLang].clock : 'es';
+    const dayNames = [];
+    for (let i = 0; i < 7; i++) {
+      dayNames.push(new Date(2000, 0, 2 + i).toLocaleDateString(locale, { weekday: 'short' }));
+    }
+    $('#cal-stats').innerHTML =
+      '<div class="stats">' +
+      '<div class="stat"><span class="stat-num cal-num present">' + data.present + '</span><span class="stat-label" data-i18n="cal_present">Presente</span></div>' +
+      '<div class="stat"><span class="stat-num cal-num absent">' + data.absent + '</span><span class="stat-label" data-i18n="cal_absent">Ausencia</span></div>' +
+      '<div class="stat"><span class="stat-num cal-num unmarked">' + data.unmarked + '</span><span class="stat-label" data-i18n="cal_unmarked">Sin marcar</span></div>' +
+      '</div>';
+    let html = dayNames.map((d) => '<div class="cal-head">' + esc(d) + '</div>').join('');
+    for (let i = 0; i < firstDay; i++) html += '<div class="cal-cell empty"></div>';
+    for (const day of data.days) {
+      html += '<div class="cal-cell ' + day.status + '" title="' + day.date + ' - ' + day.hours + '">' +
+        '<span class="cal-day">' + day.day + '</span>' +
+        (day.status === 'presente' ? '<span class="cal-hours">' + day.hours + '</span>' : '') +
+        '</div>';
+    }
+    $('#cal-grid').innerHTML = html;
+  } catch (e) {
+    toast(e.message, 'err');
   }
 }
 
@@ -680,6 +767,7 @@ async function loadHistory() {
                 <td>${esc(r.user_name)}</td>
                 <td><span class="chip ${r.type}">${typeLabel(r.type)}</span></td>
                 <td>${esc(r.note || '')}</td>
+                <td>${r.hours_worked || '00:00'}</td>
                 <td class="td-actions">
                   <button class="btn btn-sm" onclick="editRecord(${r.id})">${t('edit')}</button>
                   <button class="btn btn-sm" onclick="delRecord(${r.id})">${t('delete')}</button>
@@ -687,7 +775,7 @@ async function loadHistory() {
               </tr>`
           )
           .join('')
-      : '<tr><td colspan="6" class="muted">' + esc(t('history_table_empty')) + '</td></tr>';
+      : '<tr><td colspan="7" class="muted">' + esc(t('history_table_empty')) + '</td></tr>';
   } catch (e) {
     toast(e.message, 'err');
   }

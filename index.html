@@ -12,7 +12,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/styles.css?v=6">
+  <link rel="stylesheet" href="./css/styles.css?v=7">
 </head>
 <body>
   <header class="topbar">
@@ -68,6 +68,7 @@
       </div>
       <nav class="tabs">
         <button class="tab active" data-tab="dashboard" onclick="openAdminTab('dashboard')" data-i18n="tab_dashboard">Resumen</button>
+        <button class="tab" data-tab="calendar" onclick="openAdminTab('calendar')" data-i18n="tab_calendar">Calendario</button>
         <button class="tab" data-tab="users" onclick="openAdminTab('users')" data-i18n="tab_users">Usuarios</button>
         <button class="tab" data-tab="history" onclick="openAdminTab('history')" data-i18n="tab_history">Historial</button>
         <button class="tab" data-tab="settings" onclick="openAdminTab('settings')" data-i18n="tab_settings">Configuración</button>
@@ -87,6 +88,26 @@
         <div class="panel-card">
           <h3 data-i18n="recent_activity">Actividad reciente</h3>
           <ul id="dash-recent" class="plain-list"></ul>
+        </div>
+      </div>
+
+      <div id="tab-calendar" class="tab-panel" hidden>
+        <div class="panel-tools">
+          <select id="cal-user" onchange="loadCalendar()">
+            <option value="" data-i18n="select_user">Seleccionar usuario</option>
+          </select>
+          <input type="month" id="cal-month" onchange="loadCalendar()">
+          <button class="btn btn-primary" onclick="loadCalendar()" data-i18n="filter">Filtrar</button>
+        </div>
+        <div class="cal-stats" id="cal-stats"></div>
+        <div class="panel-card">
+          <h3 data-i18n="calendar_title">Calendario de asistencia</h3>
+          <div id="cal-grid" class="cal-grid"></div>
+          <div class="cal-legend">
+            <span class="cal-legend-item"><span class="cal-dot presente"></span> <span data-i18n="cal_present">Presente</span></span>
+            <span class="cal-legend-item"><span class="cal-dot ausencia"></span> <span data-i18n="cal_absent">Ausencia</span></span>
+            <span class="cal-legend-item"><span class="cal-dot none"></span> <span data-i18n="cal_unmarked">Sin marcar</span></span>
+          </div>
         </div>
       </div>
 
@@ -124,7 +145,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th data-i18n="th_date">Fecha</th><th data-i18n="th_time">Hora</th><th data-i18n="th_user">Usuario</th><th data-i18n="th_type">Tipo</th><th data-i18n="th_note">Nota</th><th data-i18n="th_actions">Acciones</th></tr>
+              <tr><th data-i18n="th_date">Fecha</th><th data-i18n="th_time">Hora</th><th data-i18n="th_user">Usuario</th><th data-i18n="th_type">Tipo</th><th data-i18n="th_note">Nota</th><th data-i18n="th_hours_worked">Horas trabajadas</th><th data-i18n="th_actions">Acciones</th></tr>
             </thead>
             <tbody id="history-tbody"></tbody>
           </table>
@@ -205,6 +226,7 @@
     <div class="modal-panel center">
       <div id="act-avatar"></div>
       <h3 id="act-user"></h3>
+      <p id="act-hours" class="hours-display"></p>
       <div class="action-grid">
         <button class="btn btn-big btn-entry" onclick="markAttendance('entrada')" data-i18n="entry">Entrada</button>
         <button class="btn btn-big btn-exit" onclick="markAttendance('salida')" data-i18n="exit">Salida</button>
@@ -331,7 +353,7 @@
   <div id="toast" class="toast" hidden></div>
 
   <noscript><p class="muted" style="text-align:center;padding:2rem" data-i18n="no_js">Esta aplicación necesita JavaScript.</p></noscript>
-  <script src="../js/i18n.js"></script>
-  <script src="../js/app.js?v=6"></script>
+  <script src="./js/i18n.js"></script>
+  <script src="./js/app.js?v=7"></script>
 </body>
 </html>
