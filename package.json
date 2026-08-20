@@ -1,0 +1,22 @@
+{
+  "name": "control-asistencia-v2",
+  "version": "2.0.0",
+  "description": "Registro de personal con marcado por foto de perfil + clave (PWA instalable)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "icons": "node scripts/generate-icons.js"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "nodemailer": "^6.9.16"
+  }
+}

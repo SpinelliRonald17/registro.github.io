@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1e6ef0">
+  <meta name="description" content="Registro de personal: entradas, salidas y ausencias">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Control de Asistencia</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./css/styles.css?v=7">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img id="brand-logo" alt="logo" hidden>
+      <span id="brand-name" data-i18n="brand_default">Control de Asistencia</span>
+    </div>
+    <div class="top-actions">
+      <button id="btn-theme" class="btn btn-icon" onclick="toggleTheme()" title="Cambiar tema" aria-label="Cambiar tema">
+        <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"></path>
+        </svg>
+        <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+        </svg>
+      </button>
+      <button id="btn-install" class="btn" hidden onclick="promptInstall()" data-i18n="install_app">Instalar app</button>
+      <button class="btn" onclick="headerProfile()" data-i18n="my_profile">Mi perfil</button>
+      <button class="btn" onclick="headerAdmin()" data-i18n="admin_panel">Panel admin</button>
+      <button id="btn-logout" class="btn btn-ghost" onclick="headerLogout()" hidden data-i18n="logout">Salir</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="info-bar" class="info-bar">
+      <div class="info-clock">
+        <span id="clock-date"></span>
+        <span id="clock-time"></span>
+        <span id="clock-tz"></span>
+      </div>
+      <div id="clock-weather" class="info-weather" hidden>
+        <span id="weather-icon"></span>
+        <span id="weather-text"></span>
+      </div>
+    </div>
+
+    <section id="view-marking">
+      <h2 class="page-title" data-i18n="page_title">Registro de personal</h2>
+      <div id="logged-user" class="logged-user" hidden>
+        <img id="logged-avatar" class="avatar" width="32" height="32" alt="">
+        <span id="logged-name"></span>
+        <button class="btn btn-sm btn-ghost" onclick="headerLogout()" data-i18n="close_session">Cerrar sesión</button>
+      </div>
+      <p class="muted" data-i18n="page_subtitle">Toca tu foto para registrar tu entrada, salida o ausencia.</p>
+      <div id="user-grid" class="user-grid"></div>
+    </section>
+
+    <section id="view-admin" hidden>
+      <div class="admin-head">
+        <button class="btn btn-ghost" onclick="hideAdmin()" data-i18n-html="back_to_marking">&larr; Volver al marcado</button>
+        <h2 class="page-title" data-i18n="admin_title">Panel de administración</h2>
+      </div>
+      <nav class="tabs">
+        <button class="tab active" data-tab="dashboard" onclick="openAdminTab('dashboard')" data-i18n="tab_dashboard">Resumen</button>
+        <button class="tab" data-tab="calendar" onclick="openAdminTab('calendar')" data-i18n="tab_calendar">Calendario</button>
+        <button class="tab" data-tab="users" onclick="openAdminTab('users')" data-i18n="tab_users">Usuarios</button>
+        <button class="tab" data-tab="history" onclick="openAdminTab('history')" data-i18n="tab_history">Historial</button>
+        <button class="tab" data-tab="settings" onclick="openAdminTab('settings')" data-i18n="tab_settings">Configuración</button>
+      </nav>
+
+      <div id="tab-dashboard" class="tab-panel">
+        <div class="stats">
+          <div class="stat"><span class="stat-num" id="stat-total">0</span><span class="stat-label" data-i18n="stat_staff">Personal</span></div>
+          <div class="stat"><span class="stat-num" id="stat-present">0</span><span class="stat-label" data-i18n="stat_present">Presentes hoy</span></div>
+          <div class="stat"><span class="stat-num" id="stat-absent">0</span><span class="stat-label" data-i18n="stat_absent">Ausencias</span></div>
+          <div class="stat"><span class="stat-num" id="stat-unmarked">0</span><span class="stat-label" data-i18n="stat_unmarked">Sin marcar</span></div>
+        </div>
+        <div class="panel-card">
+          <h3 data-i18n="entries_by_hour">Entradas de hoy por hora</h3>
+          <div id="hour-bars" class="hour-bars"></div>
+        </div>
+        <div class="panel-card">
+          <h3 data-i18n="recent_activity">Actividad reciente</h3>
+          <ul id="dash-recent" class="plain-list"></ul>
+        </div>
+      </div>
+
+      <div id="tab-calendar" class="tab-panel" hidden>
+        <div class="panel-tools">
+          <select id="cal-user" onchange="loadCalendar()">
+            <option value="" data-i18n="select_user">Seleccionar usuario</option>
+          </select>
+          <input type="month" id="cal-month" onchange="loadCalendar()">
+          <button class="btn btn-primary" onclick="loadCalendar()" data-i18n="filter">Filtrar</button>
+        </div>
+        <div class="cal-stats" id="cal-stats"></div>
+        <div class="panel-card">
+          <h3 data-i18n="calendar_title">Calendario de asistencia</h3>
+          <div id="cal-grid" class="cal-grid"></div>
+          <div class="cal-legend">
+            <span class="cal-legend-item"><span class="cal-dot presente"></span> <span data-i18n="cal_present">Presente</span></span>
+            <span class="cal-legend-item"><span class="cal-dot ausencia"></span> <span data-i18n="cal_absent">Ausencia</span></span>
+            <span class="cal-legend-item"><span class="cal-dot none"></span> <span data-i18n="cal_unmarked">Sin marcar</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-users" class="tab-panel" hidden>
+        <div class="panel-tools">
+          <button class="btn btn-primary" onclick="newUser()" data-i18n="new_user">+ Nuevo usuario</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th></th><th data-i18n="th_name">Nombre</th><th data-i18n="th_email">Email</th><th data-i18n="th_phone">Teléfono</th><th data-i18n="th_role">Rol</th><th data-i18n="th_actions">Acciones</th></tr>
+            </thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="tab-history" class="tab-panel" hidden>
+        <div class="panel-tools filters">
+          <input type="date" id="f-from" onchange="setHistoryFilter('from', this.value)">
+          <input type="date" id="f-to" onchange="setHistoryFilter('to', this.value)">
+          <select id="f-user" onchange="setHistoryFilter('userId', this.value)">
+            <option value="" data-i18n="all_users">Todos los usuarios</option>
+          </select>
+          <select id="f-type" onchange="setHistoryFilter('type', this.value)">
+            <option value="" data-i18n="all_types">Todos los tipos</option>
+            <option value="entrada" data-i18n="entry">Entrada</option>
+            <option value="salida" data-i18n="exit">Salida</option>
+            <option value="ausencia" data-i18n="absence">Ausencia</option>
+          </select>
+          <button class="btn" onclick="loadHistory()" data-i18n="filter">Filtrar</button>
+          <button class="btn" onclick="clearHistoryFilters()" data-i18n="clear">Limpiar</button>
+          <button class="btn btn-primary" onclick="exportCSV()" data-i18n="export_csv">Exportar CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th data-i18n="th_date">Fecha</th><th data-i18n="th_time">Hora</th><th data-i18n="th_user">Usuario</th><th data-i18n="th_type">Tipo</th><th data-i18n="th_note">Nota</th><th data-i18n="th_hours_worked">Horas trabajadas</th><th data-i18n="th_actions">Acciones</th></tr>
+            </thead>
+            <tbody id="history-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="tab-settings" class="tab-panel" hidden>
+        <div class="panel-card settings-form">
+          <label data-i18n="set_app_name">Nombre de la aplicación
+            <input id="set-name" type="text">
+          </label>
+          <label data-i18n="set_theme">Tema por defecto
+            <select id="set-theme">
+              <option value="light" data-i18n="theme_light">Claro</option>
+              <option value="dark" data-i18n="theme_dark">Oscuro</option>
+            </select>
+          </label>
+          <label data-i18n="set_accent">Color de acento
+            <input id="set-accent" type="color">
+          </label>
+          <label data-i18n="set_language">Idioma
+            <select id="set-lang"></select>
+          </label>
+          <button class="btn btn-primary" onclick="saveSettings()" data-i18n="save_settings">Guardar configuración</button>
+
+          <hr>
+          <h3 data-i18n="logo">Logo</h3>
+          <img id="set-logo-img" class="preview" alt="logo">
+          <input id="set-logo-file" type="file" accept="image/*">
+          <div class="btn-row">
+            <button class="btn" onclick="uploadLogo()" data-i18n="upload_logo">Subir logo</button>
+            <button class="btn btn-ghost" onclick="clearLogo()" data-i18n="remove_logo">Quitar logo</button>
+          </div>
+
+          <hr>
+          <h3 data-i18n="app_bg">Fondo de la aplicación</h3>
+          <img id="set-bg-img" class="preview wide" alt="fondo">
+          <input id="set-bg-file" type="file" accept="image/*">
+          <div class="btn-row">
+            <button class="btn" onclick="uploadBackground()" data-i18n="upload_bg">Subir fondo</button>
+            <button class="btn btn-ghost" onclick="clearBackground()" data-i18n="remove_bg">Quitar fondo</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span id="install-hint" class="muted"></span>
+  </footer>
+
+  <div class="modal" id="pick-modal">
+    <div class="modal-panel">
+      <h3 data-i18n="pick_title">Selecciona tu perfil</h3>
+      <p class="muted" id="pick-title"></p>
+      <div id="pick-list" class="pick-list"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('pick-modal')" data-i18n="cancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="pin-modal">
+    <div class="modal-panel center">
+      <div id="pin-avatar"></div>
+      <h3 id="pin-user"></h3>
+      <input id="pin-input" type="password" inputmode="numeric" data-i18n-placeholder="pin_placeholder" placeholder="Tu clave" autocomplete="off" maxlength="20">
+      <p id="pin-error" class="error" hidden></p>
+      <div class="modal-actions column">
+        <button class="btn btn-primary" onclick="submitPin()" data-i18n="pin_continue">Continuar</button>
+        <button class="btn btn-ghost" onclick="openRecovery()" data-i18n="pin_forgot">¿Olvidaste tu clave?</button>
+        <button class="btn btn-ghost" onclick="closeModal('pin-modal')" data-i18n="cancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="actions-modal">
+    <div class="modal-panel center">
+      <div id="act-avatar"></div>
+      <h3 id="act-user"></h3>
+      <p id="act-hours" class="hours-display"></p>
+      <div class="action-grid">
+        <button class="btn btn-big btn-entry" onclick="markAttendance('entrada')" data-i18n="entry">Entrada</button>
+        <button class="btn btn-big btn-exit" onclick="markAttendance('salida')" data-i18n="exit">Salida</button>
+        <button class="btn btn-big btn-absent" onclick="markAttendance('ausencia')" data-i18n="absence">Ausencia</button>
+      </div>
+      <input id="act-note" type="text" data-i18n-placeholder="note_placeholder" placeholder="Nota (opcional)" maxlength="200">
+      <div class="modal-actions">
+        <button class="btn" onclick="openProfile()" data-i18n="my_photo_key">Mi foto / clave</button>
+        <button id="btn-act-admin" class="btn" onclick="showAdmin()" hidden data-i18n="admin_panel">Panel admin</button>
+        <button class="btn btn-ghost" onclick="closeModal('actions-modal')" data-i18n="close">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="profile-modal">
+    <div class="modal-panel">
+      <h3 data-i18n="profile_title">Mi perfil</h3>
+      <div class="center">
+        <div id="prof-avatar"></div>
+        <h4 id="prof-name"></h4>
+      </div>
+      <label data-i18n="new_photo">Nueva foto de perfil
+        <input id="prof-file" type="file" accept="image/*">
+      </label>
+      <button class="btn btn-primary" onclick="uploadMyPhoto()" data-i18n="save_photo">Guardar foto</button>
+      <hr>
+      <h4 data-i18n="change_key">Cambiar mi clave</h4>
+      <input id="cp-old" type="password" data-i18n-placeholder="current_key" placeholder="Clave actual" autocomplete="off">
+      <input id="cp-new" type="password" data-i18n-placeholder="new_key" placeholder="Nueva clave (mín. 4)" autocomplete="off">
+      <input id="cp-confirm" type="password" data-i18n-placeholder="confirm_key" placeholder="Repetir nueva clave" autocomplete="off">
+      <button class="btn" onclick="changePin()" data-i18n="update_key">Actualizar clave</button>
+      <button class="btn btn-ghost" onclick="closeModal('profile-modal')" data-i18n="close">Cerrar</button>
+    </div>
+  </div>
+
+  <div class="modal" id="recovery-modal">
+    <div class="modal-panel">
+      <h3 data-i18n="recover_title">Recuperar clave</h3>
+      <div id="rec-step1">
+        <p class="muted" data-i18n="recover_desc">Ingresa tu email o número de teléfono registrado. El código se enviará a tu email.</p>
+        <input id="rec-contact" type="text" data-i18n-placeholder="recover_placeholder" placeholder="Email o teléfono" autocomplete="off">
+        <p id="rec-result" class="info" hidden></p>
+        <div class="modal-actions">
+          <button class="btn btn-primary" onclick="submitRecovery()" data-i18n="send_code">Enviar código</button>
+          <button class="btn btn-ghost" onclick="closeModal('recovery-modal')" data-i18n="cancel">Cancelar</button>
+        </div>
+      </div>
+      <div id="rec-step2" hidden>
+        <p id="rec-info" class="info"></p>
+        <div id="rec-dev" class="dev-code" hidden>
+          <p data-i18n="recovery_code">Código de recuperación:</p>
+          <strong id="rec-dev-code"></strong>
+        </div>
+        <input id="rec-code" type="text" inputmode="numeric" data-i18n-placeholder="code_placeholder" placeholder="Código de 6 dígitos" autocomplete="off">
+        <input id="rec-new" type="password" data-i18n-placeholder="new_key" placeholder="Nueva clave (mín. 4)" autocomplete="off">
+        <input id="rec-confirm" type="password" data-i18n-placeholder="confirm_key" placeholder="Repetir nueva clave" autocomplete="off">
+        <div class="modal-actions">
+          <button class="btn btn-primary" onclick="submitReset()" data-i18n="reset_key">Restablecer clave</button>
+          <button class="btn btn-ghost" onclick="backRecovery()" data-i18n="back">Volver</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="user-form-modal">
+    <div class="modal-panel">
+      <h3 id="uf-title" data-i18n="user_form_new">Nuevo usuario</h3>
+      <input id="uf-id" type="hidden">
+      <label data-i18n="label_name">Nombre
+        <input id="uf-name" type="text">
+      </label>
+      <label data-i18n="label_email">Email (para recuperación)
+        <input id="uf-email" type="email">
+      </label>
+      <label data-i18n="label_phone">WhatsApp (para recuperación)
+        <input id="uf-phone" type="text" data-i18n-placeholder="phone_placeholder" placeholder="Ej: +593999999999">
+      </label>
+      <label data-i18n="label_key">Clave
+        <input id="uf-pin" type="password" data-i18n-placeholder="key_placeholder" placeholder="Clave inicial" autocomplete="off">
+      </label>
+      <label data-i18n="label_role">Rol
+        <select id="uf-role">
+          <option value="user" data-i18n="role_user">Usuario</option>
+          <option value="admin" data-i18n="role_admin">Administrador</option>
+        </select>
+      </label>
+      <label data-i18n="label_photo">Foto
+        <input id="uf-photo" type="file" accept="image/*">
+      </label>
+      <div class="btn-row">
+        <button class="btn btn-sm" onclick="uploadUserPhoto()" data-i18n="upload_user_photo">Subir foto de este usuario</button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="saveUser()" data-i18n="save">Guardar</button>
+        <button class="btn btn-ghost" onclick="closeModal('user-form-modal')" data-i18n="cancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="record-form-modal">
+    <div class="modal-panel">
+      <h3 data-i18n="edit_record">Editar registro</h3>
+      <input id="rf-id" type="hidden">
+      <label data-i18n="label_datetime">Fecha y hora
+        <input id="rf-datetime" type="datetime-local">
+      </label>
+      <label data-i18n="label_type">Tipo
+        <select id="rf-type">
+          <option value="entrada" data-i18n="entry">Entrada</option>
+          <option value="salida" data-i18n="exit">Salida</option>
+          <option value="ausencia" data-i18n="absence">Ausencia</option>
+        </select>
+      </label>
+      <label data-i18n="label_note">Nota
+        <input id="rf-note" type="text">
+      </label>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="saveRecord()" data-i18n="save">Guardar</button>
+        <button class="btn btn-ghost" onclick="closeModal('record-form-modal')" data-i18n="cancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <noscript><p class="muted" style="text-align:center;padding:2rem" data-i18n="no_js">Esta aplicación necesita JavaScript.</p></noscript>
+  <script src="./js/i18n.js"></script>
+  <script src="./js/app.js?v=7"></script>
+</body>
+</html>
